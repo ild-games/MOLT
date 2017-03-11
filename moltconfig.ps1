@@ -1,13 +1,25 @@
-function Get-FileName ($extensionFilter, $title) {
+function Get-FileName ($extensionFilter, $title, $initialDirectory) {
     [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
 
     $FileSelectionDialog = New-Object System.Windows.Forms.OpenFileDialog
     $FileSelectionDialog.Title = $title
+    if ($initialDirectory) {
+        $FileSelectionDialog.InitialDirectory = $initialDirectory
+    }
     $FileSelectionDialog.Filter = $extensionFilter
     $FileSelectionDialog.ShowDialog() | Out-Null
 
     $FileSelectionDialog.FileName
 }
+
+function Get-ValueFromCached($key) {
+    $csvResults = Import-Csv .\molt.config-cache | Where-Object {$_.key -eq $key}
+    ForEach-Object -InputObject $csvResults {
+        $returnValue = $_.value
+    }
+    $returnValue
+}
+
 
 function Get-ContainerDialog($title) {
     [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
@@ -43,8 +55,14 @@ function Get-TextBox() {
     $textBox
 }
 
-function Get-FreeText ($title, $prompt) {
-    Read-Host $prompt
+function Get-FreeText ($key, $prompt) {
+    $previousValue = Get-ValueFromCached $key
+    $readValue = Read-Host "$($prompt) [will use ""$($previousValue)"" if nothing entered]"
+    $returnValue = $previousValue
+    if ($readValue) {
+        $returnValue = $readValue
+    } 
+    $returnValue
 }
 
 function Write-ToConfig ($key, $value) {
@@ -52,7 +70,11 @@ function Write-ToConfig ($key, $value) {
 }
 
 function Write-PathNameForKeyToConfig ($key, $extensionFilter) {
-    $value = Get-FileName $extensionFilter $key
+    $initialPath = Get-ValueFromCached $key 
+    if ($initialPath) {
+        $initialPath = $initialPath | Split-Path
+    }
+    $value = Get-FileName $extensionFilter $key $initialPath
     Write-ToConfig $key $value
 }
    
@@ -61,18 +83,20 @@ function Write-FreeTextForKeyToConfig ($key, $prompt) {
     Write-ToConfig $key $value
 }
 
-function Write-SplitPathToConfig($key, $extensionFilter, $prompt) {
+function Write-SplitPathToConfig($keyPrefix, $extensionFilter, $prompt) {
     Write-Host $prompt
-    $path = Get-FileName $extensionFilter $prompt
+    $initialFolder = Get-ValueFromCached "$($keyPrefix)Folder"
+    $path = Get-FileName $extensionFilter $prompt $initialFolder
     $folder = Split-Path -Path $path
-    Write-ToConfig "$($key)Folder" $folder
+    Write-ToConfig "$($keyPrefix)Folder" $folder
     $file = Split-Path -Path $path -Leaf
-    Write-ToConfig "$($key)File" $file
+    Write-ToConfig "$($keyPrefix)File" $file
 }
 
 function ConfigViaGUI () {
 
     Write-Host "Deleting Previous Configuration..."
+    Copy-Item .\molt.config .\molt.config-cache
 
     # Replace/Create a .config file and write the header
     "key,value" | Out-File .\molt.config
@@ -80,10 +104,10 @@ function ConfigViaGUI () {
     Write-Host "Select your After Effects Project"
     Write-PathNameForKeyToConfig "projectPath" "After Effects Project | *.aep"
     Write-SplitPathToConfig "source" "Illustrator File | *.ai" "The current source file" "Select the source file currently being used in the After Effects Project"
+    Write-SplitPathToConfig "output" "AnyFile| *" "Select a file in the output directory named <prefix>"
     Write-FreeTextForKeyToConfig "outputModuleTemplate" "Enter the (case sensitive) name of your After Effects Output Module Template"
     Write-FreeTextForKeyToConfig "compName" "Enter the (case sensitive) name of your After Effecs Comp"
-    Write-Host 
-    Write-SplitPathToConfig "output" "AnyFile| *" "Select a file in the output directory named <prefix>"
+    Remove-Item .\molt.config-cache
 }
 
 
