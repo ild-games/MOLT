@@ -9,6 +9,7 @@ Currently, MOLT only allows for the switching of a single source file, only supp
 Use a working copy of your source with a Unique Name and place it in the same folder as the other sources that you intend to use. 
 Set up a custom output module in your After Effects project (https://helpx.adobe.com/after-effects/using/basics-rendering-exporting.html)
 
+You will need a reference to the directory that contains the after effects renderer in your PATH environment variable. https://helpx.adobe.com/after-effects/using/automated-rendering-network-rendering.html
 # Usage
 ```powershell
 molt -render
