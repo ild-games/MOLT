@@ -5,11 +5,6 @@ MOLT does not provide an after effects license or renderer. You must purchase th
 MOLT runs through a folder of source files, and for each source file, renders an AE Composition that uses that source. 
 Currently, MOLT only allows for the switching of a single source file, only supports Illustrator files as sources, and requires that all sources have the same layers.
 
-# Dependencies
-## Windows
-You will need to install nuget package manager https://www.nuget.org/
-
-
 # Project Setup
 Use a working copy of your source with a Unique Name and place it in the same folder as the other sources that you intend to use. 
 Set up a custom output module in your After Effects project (https://helpx.adobe.com/after-effects/using/basics-rendering-exporting.html)
