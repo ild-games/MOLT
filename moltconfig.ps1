@@ -51,14 +51,23 @@ function Write-ToConfig ($key, $value) {
     "$($key),$($value)" | Out-File .\molt.config -Append
 }
 
-function Write-FileNameForKeyToConfig ($key, $extensionFilter) {
+function Write-PathNameForKeyToConfig ($key, $extensionFilter) {
     $value = Get-FileName $extensionFilter $key
     Write-ToConfig $key $value
 }
-
+   
 function Write-FreeTextForKeyToConfig ($key, $prompt) {
     $value = Get-FreeText $key $prompt
     Write-ToConfig $key $value
+}
+
+function Write-SplitPathToConfig($key, $extensionFilter, $prompt) {
+    Write-Host $prompt
+    $path = Get-FileName $extensionFilter $prompt
+    $folder = Split-Path -Path $path
+    Write-ToConfig "$($key)Folder" $folder
+    $file = Split-Path -Path $path -Leaf
+    Write-ToConfig "$($key)File" $file
 }
 
 function ConfigViaGUI () {
@@ -69,17 +78,12 @@ function ConfigViaGUI () {
     "key,value" | Out-File .\molt.config
 
     Write-Host "Select your After Effects Project"
-    Write-FileNameForKeyToConfig "projectFile" "After Effects Project | *.aep"
-    Write-Host "Select the source file currently being used in the After Effects Project"
-    $sourcePath = Get-FileName "Illustrator File | *.ai" "The current source file"
-    $sourceFolder = Split-Path -Path $sourcePath
-    $sourceFile = Split-Path -Path $sourcePath -Leaf
-    Write-ToConfig "sourceFolder" $sourceFolder
-    Write-ToConfig "sourceFile" $sourceFile
+    Write-PathNameForKeyToConfig "projectPath" "After Effects Project | *.aep"
+    Write-SplitPathToConfig "source" "Illustrator File | *.ai" "The current source file" "Select the source file currently being used in the After Effects Project"
     Write-FreeTextForKeyToConfig "outputModuleTemplate" "Enter the (case sensitive) name of your After Effects Output Module Template"
     Write-FreeTextForKeyToConfig "compName" "Enter the (case sensitive) name of your After Effecs Comp"
-    Write-Host "Select a .png file with the naming scheme desired for your output "
-    Write-FileNameForKeyToConfig "outputFile" "PNG Image | .png"
+    Write-Host 
+    Write-SplitPathToConfig "output" "AnyFile| *" "Select a file in the output directory named <prefix>"
 }
 
 
