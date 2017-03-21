@@ -13,6 +13,9 @@ You will need a reference to the directory that contains the after effects rende
 
 Clone this repository anywhere on your system. Edit the molt.config file with relevant file paths.
 
+Make sure you have ruby set up:
+Windows -- https://www.safaribooksonline.com/library/view/learning-ruby/9780596529864/ch01s06.html
+
 # Usage
 ```bash
 usage: [--help] [--verbose] [--run] [--checkConfig]
