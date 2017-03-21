@@ -16,15 +16,15 @@ Clone this repository anywhere on your system. Edit the molt.config file with re
 # Usage
 ```bash
 usage: [--help] [--verbose] [--run] [--checkConfig]
-    options:
-        --help, -h          Show the help screen
-        --verbose, -v       Show additional output when running, 
-                            can be used with --run or --checkConfig
-        --run, -r           Run MOLT according to the configuration provided 
-                            in molt.config; by default, will check the configuration
-                            file before running to ensure it is valid
-        --checkConfig, -c   Validate the configuration file, does nothing if 
-                            --run is already being used
-        --noCheck, -n       Skip validation of the configuration file
+options:
+    --help, -h          Show the help screen
+    --verbose, -v       Show additional output when running, 
+                        can be used with --run or --checkConfig
+    --run, -r           Run MOLT according to the configuration provided 
+                        in molt.config; by default, will check the configuration
+                        file before running to ensure it is valid
+    --checkConfig, -c   Validate the configuration file, does nothing if 
+                        --run is already being used
+    --noCheck, -n       Skip validation of the configuration file
 
 ```
