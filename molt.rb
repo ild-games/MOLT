@@ -6,73 +6,59 @@ require 'set'
 
 def config_is_valid?(verbose = false)
     begin
-        config_hashs = JSON.parse(File.read('config.json'))
-        config_formats_hash = JSON.parse(File.read('configformat.json'))
+        config_hash = JSON.parse(File.read('config.json'))
     rescue 
-        puts 'Could not read config, please restore from default'
+        puts 'Could not read config, please use --restore to restore from default'
         return false
     end
-    return configs_follow_format?(config_hashs, config_formats_hash, verbose)
+
+    return configs_follow_format?(config_hash, verbose)
 end
 
-def configs_follow_format?(config_hashs, config_formats_hash, verbose = false)
+def configs_follow_format?(config_hash, verbose = false)
     valid = true
-    config_formats_hash.keys.each do |config_name|
-        verbose and puts("\n" + config_name + "\n--------------")
-        if !config_hashs[config_name] || config_hashs[config_name] == ""
-            verbose and puts(config_name + ' missing from config.json')
-            valid = false
-            next
-        end
-        if !value_matches_format?(config_hashs[config_name], config_formats_hash[config_name], verbose)
-            valid = false
-            next
-        end
-        verbose and puts("Is all good!")
-    end
+
+    verbose and puts "\nae_project\n--------------"
+    if !file_name_matches_extension?(config_hash['ae_project'], "*.aep", verbose) then valid = false end
+
+    verbose and puts "\nsource_directory\n--------------"
+    if !is_valid_directory?(config_hash['source_directory'], verbose) then valid = false end
+
+    verbose and puts "\nworking_ai_file\n--------------"
+    if !file_name_matches_extension?(config_hash['working_ai_file'], "*.ai", verbose) then valid = false end
+
+    verbose and puts "\noutput_directory\n--------------"
+    if !is_valid_directory?(config_hash['output_directory'], verbose) then valid = false end
+
     return valid
 end
 
-def value_matches_format?(value, config_hash_format, verbose = false)
-    if !value_matches_file_type?(value, config_hash_format['file_type'], verbose)
-        return false
-    end
-    if !file_name_matches_extension(value, config_hash_format['extension'], verbose)
-        return false
-    end
-    return true
-end
-
-def value_matches_file_type?(value, file_type, verbose)
-    if !file_type
-        return true
-    end
-    
-    if !File.exist?(value)
-        verbose and puts(value + ' does not exist')
+def is_valid_directory?(directory, verbose)
+    if !File.exist?(directory)
+        verbose and puts('"' + directory + '" does not exist')
         return false
     end
 
-    if File.ftype(value) != file_type
-        verbose and puts(value + ' is not a ' + file_type)
+    if File.ftype(directory) != 'directory'
+        verbose and puts('"' + directory + '" is not a directory')
         return false
     end
 
     return true
 end
 
-def file_name_matches_extension(value, extension, verbose)
+def file_name_matches_extension?(file_name, extension, verbose)
     if !extension
         return true
     end
 
-    if !File.fnmatch?(extension, File.basename(value))
-        verbose and puts(value + ' is not of the type ' + extension)
+    if !File.fnmatch?(extension, File.basename(file_name))
+        verbose and puts(file_name + ' is not of the type ' + extension)
         return false
     end
 
-    if !File.exist?(value)
-        verbose and puts('The file ' + value + ' does not exist.')
+    if !File.exist?(file_name)
+        verbose and puts('The file ' + file_name + ' does not exist.')
         return false
     end
 
@@ -129,19 +115,47 @@ end
 
 def render_using_config()
     config_hash = JSON.parse(File.read('config.json'))
-    source_name = "OG"
-    render_command = "aerender.exe -reuse"
-    render_command << " -project \"#{config_hash['ae_project']}\""
-    render_command << " -OMtemplate \"#{config_hash['ae_output_module']}\""
-    render_command << " -comp \"#{config_hash['ae_comp_name']}\""
-    render_command << " -output \"#{get_output_name(config_hash, source_name)}\""
 
-    puts render_command
-    system(render_command)
+    
+    cache_off_working_ai_file_from_config(config_hash)
+    Dir.glob(File.absolute_path(config_hash['source_directory']) + '/*.ai') do |current_source_path|
+        current_source_name = File.basename(current_source_path, '.ai')
+
+        File.rename(File.absolute_path(current_source_path),
+                    File.absolute_path(config_hash['working_ai_file']) )
+        render_command = get_render_command(config_hash, current_source_path)
+        puts render_command
+        system(render_command)
+        File.rename(File.absolute_path(config_hash['working_ai_file']),
+                    File.absolute_path(current_source_path))
+    end
+    restore_working_ai_file_from_config(config_hash)
 end
 
-def get_output_name(config_hash, current_source_name)
-    return config_hash['output_directory'] + config_hash['output_prefix'] + current_source_name
+$TEMP_WORKING_AI_FILE_NAME = "E5J0OsuPX4"
+
+def cache_off_working_ai_file_from_config(config_hash)
+    File.rename(File.absolute_path(config_hash['working_ai_file']), 
+                File.absolute_path(config_hash['source_directory']) + '/' + $TEMP_WORKING_AI_FILE_NAME)
+end
+
+def restore_working_ai_file_from_config(config_hash)
+    File.rename(File.absolute_path(config_hash['source_directory']) + '/' + $TEMP_WORKING_AI_FILE_NAME,
+                File.absolute_path(config_hash['working_ai_file']))
+end
+
+def get_render_command(config_hash, current_source_path)
+    render_command = "aerender.exe -reuse"
+    render_command << " -project \"#{File.absolute_path(config_hash['ae_project'])}\""
+    render_command << " -OMtemplate \"#{config_hash['ae_output_module']}\""
+    render_command << " -comp #{config_hash['ae_comp_name']}"
+    render_command << " -output \"#{get_output_name(config_hash,current_source_path)}\""
+end
+
+def get_output_name(config_hash, current_source_path)
+    return File.absolute_path(config_hash['output_directory']) + 
+            '/' + config_hash['output_prefix'] + 
+            File.basename(current_source_path, "*.ai") + '[#]'
 end
 
 run_molt()
