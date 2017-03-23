@@ -8,7 +8,7 @@ def config_is_valid?(verbose = false)
     begin
         config_hash = JSON.parse(File.read('config.json'))
     rescue 
-        puts 'Could not read config, please use --restore to restore from default'
+        puts 'Could not read config, please restore from default'
         return false
     end
 
@@ -68,7 +68,7 @@ end
 def run_molt()
     flags_set = get_flags_set_from_arguments
 
-    if flags_set.include?("--help") || flags_set.empty?() || (!flags_set.include?('--run') && !flags_set.include?('--checkConfig'))
+    if flags_set.include?('--help') || flags_set.empty?() || (!flags_set.include?('--run') && !flags_set.include?('--checkConfig'))
         puts <<-HELP_TEXT
     MOLT
     --------------------------------
