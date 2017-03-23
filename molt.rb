@@ -132,7 +132,7 @@ def render_using_config()
     restore_working_ai_file_from_config(config_hash)
 end
 
-$TEMP_WORKING_AI_FILE_NAME = "E5J0OsuPX4"
+$TEMP_WORKING_AI_FILE_NAME = "E5J0OsuPX4.ai"
 
 def cache_off_working_ai_file_from_config(config_hash)
     File.rename(File.absolute_path(config_hash['working_ai_file']), 
@@ -153,9 +153,12 @@ def get_render_command(config_hash, current_source_path)
 end
 
 def get_output_name(config_hash, current_source_path)
+    current_source_name = File.basename(current_source_path)
+    if current_source_name == $TEMP_WORKING_AI_FILE_NAME 
+        current_source_name = File.basename(config_hash['working_ai_file'])
+    end
     return File.absolute_path(config_hash['output_directory']) + 
-            '/' + config_hash['output_prefix'] + 
-            File.basename(current_source_path, "*.ai") + '[#]'
+            '/' + config_hash['output_prefix'] + current_source_name + '[#]'
 end
 
 run_molt()
