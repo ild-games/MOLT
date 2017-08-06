@@ -116,20 +116,26 @@ end
 def render_using_config()
     config_hash = JSON.parse(File.read('config.json'))
 
-    
+
     cache_off_working_ai_file_from_config(config_hash)
     Dir.glob(File.absolute_path(config_hash['source_directory']) + '/*.ai') do |current_source_path|
         current_source_name = File.basename(current_source_path, '.ai')
 
         File.rename(File.absolute_path(current_source_path),
                     File.absolute_path(config_hash['working_ai_file']) )
-        render_command = get_render_command(config_hash, current_source_path)
-        puts render_command
-        system(render_command)
+        render_each_comp(config_hash, current_source_path)
         File.rename(File.absolute_path(config_hash['working_ai_file']),
                     File.absolute_path(current_source_path))
     end
     restore_working_ai_file_from_config(config_hash)
+end
+
+def render_each_comp(config_hash, current_source_path)
+    comps_array = config_hash['comps_to_render']
+    comps_array.each do |current_comp|
+        render_command = get_render_command(config_hash, current_source_path, current_comp["name"], current_comp["output_prefix"] )
+        output = `#{render_command}`
+    end
 end
 
 $TEMP_WORKING_AI_FILE_NAME = "E5J0OsuPX4.ai"
@@ -144,21 +150,22 @@ def restore_working_ai_file_from_config(config_hash)
                 File.absolute_path(config_hash['working_ai_file']))
 end
 
-def get_render_command(config_hash, current_source_path)
+def get_render_command(config_hash, current_source_path, current_comp, output_prefix)
     render_command = "aerender.exe -reuse"
     render_command << " -project \"#{File.absolute_path(config_hash['ae_project'])}\""
     render_command << " -OMtemplate \"#{config_hash['ae_output_module']}\""
-    render_command << " -comp #{config_hash['ae_comp_name']}"
-    render_command << " -output \"#{get_output_name(config_hash,current_source_path)}\""
+    render_command << " -comp \"#{current_comp}\""
+    render_command << " -output \"#{get_output_name(config_hash, current_source_path, output_prefix)}\""
 end
 
-def get_output_name(config_hash, current_source_path)
+def get_output_name(config_hash, current_source_path, output_prefix)
     current_source_name = File.basename(current_source_path)
     if current_source_name == $TEMP_WORKING_AI_FILE_NAME 
         current_source_name = File.basename(config_hash['working_ai_file'])
     end
+    prefix = config_hash['output_prefix'] ? config_hash['output_prefix'] : "";
     return File.absolute_path(config_hash['output_directory']) + 
-            '/' + config_hash['output_prefix'] + current_source_name + '[#]'
+            '/' + prefix + current_source_name + '[#]'
 end
 
 run_molt()
