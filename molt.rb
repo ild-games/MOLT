@@ -3,6 +3,41 @@
 require 'json'
 require 'getoptlong'
 require 'set'
+require 'fileutils'
+
+def run_molt()
+    flags_set = get_flags_set_from_arguments
+
+    if flags_set.include?('--help') || flags_set.empty?() || (!flags_set.include?('--run') && !flags_set.include?('--checkConfig'))
+        puts <<-HELP_TEXT
+    MOLT
+    --------------------------------
+    usage: [--help] [--verbose] [--run] [--checkConfig]
+    options:
+        --help, -h          Show this screen
+        --verbose, -v       Show additional output when running, 
+                            can be used with --run or --checkConfig
+        --run, -r           Run MOLT according to the configuration provided 
+                            in molt.config; will check the configuration
+                            file before running to ensure it is valid
+        --checkConfig, -c   Validate the configuration file, does nothing if 
+                            --run is already being used
+        --removeTrailing
+        HELP_TEXT
+        return
+    end
+
+    if !config_is_valid?(flags_set.include?('--verbose'))
+        puts 'Configuration of molt is invalid'
+        if !flags_set.include?('--verbose') then puts 'Use -v for more information' end
+        return
+    end
+
+    if flags_set.include?('--run')
+        puts "Running molt..." 
+        render_using_config()
+    end
+end
 
 def config_is_valid?(verbose = false)
     begin
@@ -65,39 +100,6 @@ def file_name_matches_extension?(file_name, extension, verbose)
     return true
 end
 
-def run_molt()
-    flags_set = get_flags_set_from_arguments
-
-    if flags_set.include?('--help') || flags_set.empty?() || (!flags_set.include?('--run') && !flags_set.include?('--checkConfig'))
-        puts <<-HELP_TEXT
-    MOLT
-    --------------------------------
-    usage: [--help] [--verbose] [--run] [--checkConfig]
-    options:
-        --help, -h          Show this screen
-        --verbose, -v       Show additional output when running, 
-                            can be used with --run or --checkConfig
-        --run, -r           Run MOLT according to the configuration provided 
-                            in molt.config; will check the configuration
-                            file before running to ensure it is valid
-        --checkConfig, -c   Validate the configuration file, does nothing if 
-                            --run is already being used
-        HELP_TEXT
-        return
-    end
-
-    if !config_is_valid?(flags_set.include?('--verbose'))
-        puts 'Configuration of molt is invalid'
-        if !flags_set.include?('--verbose') then puts 'Use -v for more information' end
-        return
-    end
-
-    if flags_set.include?('--run')
-        puts "Running molt..." 
-        render_using_config()
-    end
-end
-
 def get_flags_set_from_arguments()
     opts = GetoptLong.new(
         [ '--help', '-h', GetoptLong::NO_ARGUMENT],
@@ -113,32 +115,45 @@ def get_flags_set_from_arguments()
     return flags_set
 end
 
+$TEMP_WORKING_AI_FILE_NAME = "E5J0OsuPX4.ai"
+
 def render_using_config()
     config_hash = JSON.parse(File.read('config.json'))
 
-
     cache_off_working_ai_file_from_config(config_hash)
     Dir.glob(File.absolute_path(config_hash['source_directory']) + '/*.ai') do |current_source_path|
-        current_source_name = File.basename(current_source_path, '.ai')
-
         File.rename(File.absolute_path(current_source_path),
-                    File.absolute_path(config_hash['working_ai_file']) )
+            File.absolute_path(config_hash['working_ai_file']) )
+       
+        dir_name = config_hash['output_directory'] + '/' + get_source_name_from_path(current_source_path, config_hash)
+        if (File.exists?(dir_name) || dir_name == $TEMP_WORKING_AI_FILE_NAME) 
+            File.rename(File.absolute_path(config_hash['working_ai_file']),
+                File.absolute_path(current_source_path))
+            next
+        end
+        create_directory(dir_name)
+
         render_each_comp(config_hash, current_source_path)
+        
         File.rename(File.absolute_path(config_hash['working_ai_file']),
                     File.absolute_path(current_source_path))
     end
     restore_working_ai_file_from_config(config_hash)
 end
 
+def create_directory(dir_name) 
+    FileUtils.mkdir_p(dir_name) unless File.exist?(dir_name)
+end
+
 def render_each_comp(config_hash, current_source_path)
     comps_array = config_hash['comps_to_render']
     comps_array.each do |current_comp|
+        if File.exist?(get_output_name(config_hash, current_source_path, current_comp["output_prefix"])) then next end
         render_command = get_render_command(config_hash, current_source_path, current_comp["name"], current_comp["output_prefix"] )
-        output = `#{render_command}`
+        puts render_command
+        #output = `#{render_command}`
     end
 end
-
-$TEMP_WORKING_AI_FILE_NAME = "E5J0OsuPX4.ai"
 
 def cache_off_working_ai_file_from_config(config_hash)
     File.rename(File.absolute_path(config_hash['working_ai_file']), 
@@ -159,13 +174,17 @@ def get_render_command(config_hash, current_source_path, current_comp, output_pr
 end
 
 def get_output_name(config_hash, current_source_path, output_prefix)
-    current_source_name = File.basename(current_source_path)
-    if current_source_name == $TEMP_WORKING_AI_FILE_NAME 
-        current_source_name = File.basename(config_hash['working_ai_file'])
+    current_source_name = get_source_name_from_path(current_source_path, config_hash)
+    return File.absolute_path(config_hash['output_directory']) + '/' + current_source_name +
+            '/' + output_prefix + '[#]'
+end
+
+def get_source_name_from_path(source_path, config_hash) 
+    source_name = File.basename(source_path, ".ai")
+    if source_name == File.basename($TEMP_WORKING_AI_FILE_NAME, ".ai")
+        source_name = File.basename(config_hash['working_ai_file'], ".ai")
     end
-    prefix = config_hash['output_prefix'] ? config_hash['output_prefix'] : "";
-    return File.absolute_path(config_hash['output_directory']) + 
-            '/' + prefix + current_source_name + '[#]'
+    return source_name
 end
 
 run_molt()
