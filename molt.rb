@@ -150,8 +150,7 @@ def render_each_comp(config_hash, current_source_path)
     comps_array.each do |current_comp|
         if File.exist?(get_output_name(config_hash, current_source_path, current_comp["output_prefix"])) then next end
         render_command = get_render_command(config_hash, current_source_path, current_comp["name"], current_comp["output_prefix"] )
-        puts render_command
-        #output = `#{render_command}`
+        output = `#{render_command}`
     end
 end
 
