@@ -22,7 +22,6 @@ def run_molt()
                             file before running to ensure it is valid
         --checkConfig, -c   Validate the configuration file, does nothing if 
                             --run is already being used
-        --removeTrailing
         HELP_TEXT
         return
     end
@@ -35,15 +34,39 @@ def run_molt()
 
     if flags_set.include?('--run')
         puts "Running molt..." 
-        render_using_config()
+        config_hash = JSON.parse(File.read('config.json'))
+        missing_renders = get_missing_renders(config_hash)
+        render_missing_renders(missing_renders, config_hash)
     end
+end
+
+def get_missing_renders(config_hash)
+    missing_renders = {}
+    
+    Dir.glob(File.absolute_path(config_hash['source_directory']) + '/*.ai') do |current_source_path|
+        source_name = get_source_name_from_path(current_source_path, config_hash)
+        render_directory = File.absolute_path(config_hash['output_directory']) + '/' + source_name
+        missing_comps_for_source = []
+        
+        config_hash['comps_to_render'].each do |comp|
+            if Dir.glob(render_directory + '/*' + comp['output_prefix'] + '*').length == 0
+                missing_comps_for_source.push(comp)
+            end
+        end
+
+        if missing_comps_for_source.length != 0 
+            missing_renders[current_source_path] = missing_comps_for_source
+        end
+    end
+
+    return missing_renders
 end
 
 def config_is_valid?(verbose = false)
     begin
         config_hash = JSON.parse(File.read('config.json'))
     rescue 
-        puts 'Could not read config, please restore from default'
+        puts 'Config file could not be parsed or could not be opened'
         return false
     end
 
@@ -117,41 +140,36 @@ end
 
 $TEMP_WORKING_AI_FILE_NAME = "E5J0OsuPX4.ai"
 
-def render_using_config()
-    config_hash = JSON.parse(File.read('config.json'))
-
+def render_missing_renders(missing_renders, config_hash)
     cache_off_working_ai_file_from_config(config_hash)
-    Dir.glob(File.absolute_path(config_hash['source_directory']) + '/*.ai') do |current_source_path|
-        File.rename(File.absolute_path(current_source_path),
-            File.absolute_path(config_hash['working_ai_file']) )
-       
-        dir_name = config_hash['output_directory'] + '/' + get_source_name_from_path(current_source_path, config_hash)
-        if (File.exists?(dir_name) || dir_name == $TEMP_WORKING_AI_FILE_NAME) 
-            File.rename(File.absolute_path(config_hash['working_ai_file']),
-                File.absolute_path(current_source_path))
-            next
-        end
-        create_directory(dir_name)
+    missing_renders.each do |source_path, missing_comps|
+        set_source_as_working_file(source_path, config_hash)
+        dir_name = config_hash['output_directory'] + '/' + get_source_name_from_path(source_path, config_hash)
+        FileUtils.mkdir_p(dir_name) unless Dir.exist?(dir_name)
 
-        render_each_comp(config_hash, current_source_path)
-        
-        File.rename(File.absolute_path(config_hash['working_ai_file']),
-                    File.absolute_path(current_source_path))
+        missing_comps.each do |comp|
+            render_command = get_render_command(config_hash, source_path, comp["name"], comp["output_prefix"] )
+            output = `#{render_command}`
+        end
+        set_working_file_back_to_source(source_path, config_hash)
     end
     restore_working_ai_file_from_config(config_hash)
 end
 
-def create_directory(dir_name) 
-    FileUtils.mkdir_p(dir_name) unless File.exist?(dir_name)
+def set_source_as_working_file(source_path, config_hash)
+    if (File.basename(source_path) == File.basename(config_hash['working_ai_file']))
+        source_path = File.dirname(source_path) + '/' + $TEMP_WORKING_AI_FILE_NAME
+    end
+    File.rename(File.absolute_path(source_path),
+        File.absolute_path(config_hash['working_ai_file']))   
 end
 
-def render_each_comp(config_hash, current_source_path)
-    comps_array = config_hash['comps_to_render']
-    comps_array.each do |current_comp|
-        if File.exist?(get_output_name(config_hash, current_source_path, current_comp["output_prefix"])) then next end
-        render_command = get_render_command(config_hash, current_source_path, current_comp["name"], current_comp["output_prefix"] )
-        output = `#{render_command}`
+def set_working_file_back_to_source(source_path, config_hash) 
+    if (File.basename(source_path) == File.basename(config_hash['working_ai_file']))
+        source_path = File.dirname(source_path) + '/' + $TEMP_WORKING_AI_FILE_NAME
     end
+    File.rename(File.absolute_path(config_hash['working_ai_file']),
+        File.absolute_path(source_path))
 end
 
 def cache_off_working_ai_file_from_config(config_hash)
